@@ -1,0 +1,83 @@
+- name: Include Variable
+  include_vars: "{{ ansible_distribution }}.yml"
+
+- name: Generate an OpenSSL private key.
+  openssl_privatekey:
+    path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.key"
+  delegate_to: localhost
+
+- name: Generate an OpenSSL Certificate Signing Request
+  openssl_csr:
+    path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.csr"
+    privatekey_path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.key"
+    common_name: "{{ openssl_ca_cn }}"
+  delegate_to: localhost
+
+- name: Generate a Self Signed OpenSSL certificate
+  openssl_certificate:
+    path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.crt"
+    privatekey_path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.key"
+    csr_path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.csr"
+    provider: selfsigned
+  delegate_to: localhost
+
+
+
+- name: Generate Private Key for Host {{ ansible_hostname }}.
+  openssl_privatekey:
+    path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.key"
+  delegate_to: localhost
+
+
+- name: Generate CSR for Host {{ ansible_hostname }}
+  openssl_csr:
+    path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.csr"
+    privatekey_path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.key"
+    common_name: "{{ ansible_hostname }}"
+  delegate_to: localhost
+
+
+- name: Generate Certificate for Host {{ ansible_hostname }}
+  openssl_certificate:
+    path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.crt"
+    csr_path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.csr"
+    ownca_path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.crt"
+    ownca_privatekey_path: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.key"
+    provider: ownca
+  delegate_to: localhost
+
+- name: Generate PKCS#12 file
+  openssl_pkcs12:
+    action: export
+    path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.p12"
+    friendly_name: default
+    passphrase: "{{ openssl_keystore_passphrase }}"
+    privatekey_path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.key"
+    certificate_path: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.crt"
+    other_certificates: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.crt"
+    state: present
+  delegate_to: localhost
+
+- name: Copy Certificate to Host
+  copy:
+    src: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.crt"
+    dest: "{{ pki_private_cert_path }}"
+
+- name: Copy Certificate Key to Host
+  copy:
+    src: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.key"
+    dest: "{{ pki_private_cert_path }}"
+
+- name: Copy Certificate P12 Keystore to Host
+  copy:
+    src: "{{ playbook_dir }}/pki/{{ ansible_hostname }}.p12"
+    dest: "{{ pki_private_cert_path }}"
+
+
+- name: Copy CA to Host
+  copy:
+    src: "{{ playbook_dir }}/pki/{{ openssl_ca_cn }}.crt"
+    dest: "{{ pki_trust_dir }}"
+
+- name: Update CA Command
+  shell: "{{ pki_trust_update_command }}"

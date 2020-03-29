@@ -1,0 +1,2 @@
+openssl_ca_cn: "default-ca"
+openssl_keystore_passphrase: "secret"
