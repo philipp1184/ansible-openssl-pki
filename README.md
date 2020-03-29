@@ -6,6 +6,8 @@ Playbook Folder /pki
 
 ## Simple Example Playbook
 
- - hosts: all
-   roles:
-    - openssl-pki
+```
+- hosts: all
+  roles:
+   - openssl-pki
+```
